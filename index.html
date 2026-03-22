@@ -9,77 +9,17 @@
 
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:'Poppins',sans-serif;}
-
-body{
-  background: linear-gradient(135deg, #0f172a, #1e293b);
-  color:white;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  min-height:100vh;
-}
-
-.container{
-  width:100%;
-  max-width:420px;
-  padding:15px;
-  text-align:center;
-}
-
+body{background: linear-gradient(135deg, #0f172a, #1e293b);color:white;display:flex;justify-content:center;align-items:center;min-height:100vh;}
+.container{width:100%;max-width:420px;padding:15px;text-align:center;}
 h1{font-size:1.4rem;margin-bottom:10px;}
-
-button{
-  width:100%;
-  padding:14px;
-  border:none;
-  border-radius:12px;
-  background:linear-gradient(135deg,#3b82f6,#2563eb);
-  color:white;
-  font-size:1rem;
-  margin-top:10px;
-}
-
-.video-box{
-  position:relative;
-  width:100%;
-  border-radius:18px;
-  overflow:hidden;
-  margin-top:15px;
-  border:1px solid rgba(255,255,255,0.1);
-}
-
-video{
-  width:100%;
-  height:auto;
-  display:block;
-}
-
-canvas{
-  position:absolute;
-  top:0;
-  left:0;
-  width:100%;
-  height:100%;
-}
-
-.controls{
-  display:flex;
-  gap:10px;
-  margin-top:10px;
-}
-
-.controls button{
-  flex:1;
-}
-
-.status{
-  margin-top:10px;
-  font-size:.8rem;
-  opacity:.7;
-}
-
+button{width:100%;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;font-size:1rem;margin-top:10px;}
+.video-box{position:relative;width:100%;border-radius:18px;overflow:hidden;margin-top:15px;border:1px solid rgba(255,255,255,0.1);} 
+video, img{width:100%;display:block;}
+canvas{position:absolute;top:0;left:0;width:100%;height:100%;}
+.controls{display:flex;gap:10px;margin-top:10px;}
+.controls button{flex:1;}
+.status{margin-top:10px;font-size:.8rem;opacity:.7;}
 .hidden{display:none;}
-
 </style>
 </head>
 
@@ -87,19 +27,20 @@ canvas{
 <div class="container">
 
 <h1>📸 Cámara Inteligente</h1>
-
 <button id="startBtn">¿Preparado? Toma una foto</button>
 
 <div id="camUI" class="hidden">
 
 <div class="video-box">
   <video id="video" autoplay playsinline></video>
+  <img id="photo" class="hidden" />
   <canvas id="canvas"></canvas>
 </div>
 
 <div class="controls">
   <button id="switch">🔄</button>
   <button id="capture">📷</button>
+  <button id="retake" class="hidden">🔁</button>
 </div>
 
 <button id="download" class="hidden">⬇️ Descargar Foto</button>
@@ -113,10 +54,12 @@ canvas{
 const video = document.getElementById('video');
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
+const photo = document.getElementById('photo');
 const statusText = document.getElementById('status');
 
 let stream;
 let facing = 'environment';
+let capturedData = null;
 
 async function startCamera(){
   if(stream) stream.getTracks().forEach(t=>t.stop());
@@ -128,6 +71,9 @@ async function startCamera(){
     });
 
     video.srcObject = stream;
+    video.classList.remove('hidden');
+    photo.classList.add('hidden');
+
     statusText.innerText = 'Cámara activa ✔';
 
   }catch(e){
@@ -149,7 +95,7 @@ document.getElementById('switch').onclick = async ()=>{
   await startCamera();
 };
 
-// captura
+// capturar
 document.getElementById('capture').onclick = ()=>{
   const temp = document.createElement('canvas');
   temp.width = video.videoWidth;
@@ -157,20 +103,42 @@ document.getElementById('capture').onclick = ()=>{
   const c = temp.getContext('2d');
   c.drawImage(video,0,0);
 
-  const link = document.getElementById('download');
-  link.href = temp.toDataURL('image/png',1.0);
-  link.download = 'foto.png';
-  link.classList.remove('hidden');
+  capturedData = temp.toDataURL('image/png',1.0);
+
+  photo.src = capturedData;
+  photo.classList.remove('hidden');
+  video.classList.add('hidden');
+
+  document.getElementById('download').classList.remove('hidden');
+  document.getElementById('retake').classList.remove('hidden');
 
   statusText.innerText = 'Foto capturada ✔';
 };
 
-// descargar
-document.getElementById('download').onclick = function(){
-  this.click();
+// repetir
+document.getElementById('retake').onclick = ()=>{
+  photo.classList.add('hidden');
+  video.classList.remove('hidden');
+  document.getElementById('download').classList.add('hidden');
+  document.getElementById('retake').classList.add('hidden');
+  statusText.innerText = 'Listo para nueva captura';
 };
 
-// cargar modelos
+// descargar
+document.getElementById('download').onclick = ()=>{
+  if(!capturedData) return;
+
+  const a = document.createElement('a');
+  a.href = capturedData;
+  a.download = `foto_${Date.now()}.png`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  statusText.innerText = 'Descarga completada ✔';
+};
+
+// cargar IA
 async function loadModels(){
   const url = 'https://cdn.jsdelivr.net/npm/face-api.js/weights';
   await faceapi.nets.tinyFaceDetector.loadFromUri(url);
@@ -183,6 +151,7 @@ async function detectFaces(){
   canvas.height = video.clientHeight;
 
   setInterval(async ()=>{
+    if(video.classList.contains('hidden')) return;
     if(video.readyState !== 4) return;
 
     const detections = await faceapi.detectAllFaces(video,new faceapi.TinyFaceDetectorOptions());
@@ -191,14 +160,12 @@ async function detectFaces(){
 
     detections.forEach(det=>{
       const {x,y,width,height} = det.box;
-
       ctx.strokeStyle = '#00ff99';
       ctx.lineWidth = 2;
       ctx.strokeRect(x,y,width,height);
-
       ctx.fillStyle = '#00ff99';
       ctx.font = '12px Poppins';
-      ctx.fillText('Rostro detectado', x, y - 5);
+      ctx.fillText('Rostro', x, y - 5);
     });
 
   },150);
