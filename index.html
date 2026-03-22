@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cámara - Control de Acceso</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Poppins',sans-serif;}
+
+body{
+  min-height:100vh;
+  background: linear-gradient(135deg, #0f172a, #1e293b);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  color:white;
+}
+
+.container{
+  width:100%;
+  max-width:950px;
+  text-align:center;
+}
+
+h1{margin-bottom:10px;font-weight:600;}
+.subtitle{opacity:.7;margin-bottom:20px;font-size:.9rem;}
+
+button{
+  background:linear-gradient(135deg,#3b82f6,#2563eb);
+  border:none;
+  padding:12px 20px;
+  border-radius:12px;
+  color:white;
+  font-size:.95rem;
+  cursor:pointer;
+  margin:6px;
+  transition:.25s;
+}
+button:hover{transform:scale(1.05);}
+
+.video-wrapper{
+  position:relative;
+  overflow:hidden;
+  border-radius:18px;
+  border:1px solid rgba(255,255,255,0.1);
+}
+
+video{
+  width:100%;
+  max-height:420px;
+  object-fit:cover;
+  transform:scale(1);
+  transition:transform .2s ease;
+}
+
+.overlay{
+  position:absolute;
+  inset:0;
+  border:2px dashed rgba(255,255,255,0.3);
+  border-radius:18px;
+  pointer-events:none;
+}
+
+.controls{margin-top:12px;}
+
+canvas{
+  width:100%;
+  margin-top:15px;
+  border-radius:12px;
+  display:none;
+}
+
+.status{
+  margin-top:10px;
+  font-size:.85rem;
+  opacity:.7;
+}
+
+.hidden{display:none;}
+
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<h1>📸 Captura de Acceso</h1>
+<div class="subtitle">Sistema de registro visual en tiempo real</div>
+
+<button id="startBtn">¿Preparado? Toma una foto</button>
+
+<div id="cameraSection" class="hidden">
+
+  <div class="video-wrapper">
+    <video id="video" autoplay playsinline></video>
+    <div class="overlay"></div>
+  </div>
+
+  <div class="controls">
+    <button id="zoomIn">Zoom +</button>
+    <button id="zoomOut">Zoom -</button>
+    <button id="capture">📷 Capturar</button>
+    <button id="retake" class="hidden">🔄 Repetir</button>
+  </div>
+
+  <canvas id="canvas"></canvas>
+
+  <div class="controls">
+    <button id="download" class="hidden">⬇️ Descargar</button>
+  </div>
+
+  <div class="status" id="status">Esperando iniciar cámara...</div>
+
+</div>
+
+</div>
+
+<script>
+let video = document.getElementById('video');
+let canvas = document.getElementById('canvas');
+let ctx = canvas.getContext('2d');
+let zoom = 1;
+let stream = null;
+let track = null;
+
+const statusText = document.getElementById('status');
+
+// INICIAR CAMARA
+startBtn.onclick = async () => {
+  document.getElementById('cameraSection').classList.remove('hidden');
+
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment' },
+      audio: false
+    });
+
+    video.srcObject = stream;
+    track = stream.getVideoTracks()[0];
+
+    statusText.innerText = 'Cámara activa ✔';
+
+  } catch (err) {
+    statusText.innerText = 'Error: No se pudo acceder a la cámara ❌';
+    console.error(err);
+  }
+};
+
+// ZOOM REAL (si el dispositivo lo soporta)
+document.getElementById('zoomIn').onclick = async () => {
+  if(track && track.getCapabilities().zoom){
+    let cap = track.getCapabilities();
+    let settings = track.getSettings();
+    let newZoom = Math.min(cap.max, settings.zoom + 0.5);
+    await track.applyConstraints({advanced:[{zoom:newZoom}]});
+  } else {
+    zoom += 0.1;
+    video.style.transform = `scale(${zoom})`;
+  }
+};
+
+document.getElementById('zoomOut').onclick = async () => {
+  if(track && track.getCapabilities().zoom){
+    let cap = track.getCapabilities();
+    let settings = track.getSettings();
+    let newZoom = Math.max(cap.min, settings.zoom - 0.5);
+    await track.applyConstraints({advanced:[{zoom:newZoom}]});
+  } else {
+    zoom = Math.max(1, zoom - 0.1);
+    video.style.transform = `scale(${zoom})`;
+  }
+};
+
+// CAPTURAR
+document.getElementById('capture').onclick = () => {
+  canvas.style.display = 'block';
+
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+
+  ctx.drawImage(video, 0, 0);
+
+  document.getElementById('download').classList.remove('hidden');
+  document.getElementById('retake').classList.remove('hidden');
+
+  statusText.innerText = 'Foto capturada ✔';
+};
+
+// REINTENTAR
+document.getElementById('retake').onclick = () => {
+  canvas.style.display = 'none';
+  document.getElementById('download').classList.add('hidden');
+  document.getElementById('retake').classList.add('hidden');
+  statusText.innerText = 'Listo para nueva captura';
+};
+
+// DESCARGAR
+document.getElementById('download').onclick = () => {
+  const link = document.createElement('a');
+  link.href = canvas.toDataURL('image/png');
+  link.download = `acceso_${Date.now()}.png`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  statusText.innerText = 'Imagen descargada ✔';
+};
+
+</script>
+</body>
+</html>
