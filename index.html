@@ -2,77 +2,128 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cámara PRO - Control de Acceso</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Cámara PRO Mobile</title>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
 
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:'Poppins',sans-serif;}
+
 body{
-  min-height:100vh;
   background: linear-gradient(135deg, #0f172a, #1e293b);
+  color:white;
   display:flex;
   justify-content:center;
   align-items:center;
-  color:white;
+  min-height:100vh;
 }
-.container{max-width:950px;width:100%;text-align:center;}
-h1{margin-bottom:10px;}
+
+.container{
+  width:100%;
+  max-width:420px;
+  padding:15px;
+  text-align:center;
+}
+
+h1{font-size:1.4rem;margin-bottom:10px;}
+
 button{
+  width:100%;
+  padding:14px;
+  border:none;
+  border-radius:12px;
   background:linear-gradient(135deg,#3b82f6,#2563eb);
-  border:none;padding:10px 18px;border-radius:10px;color:white;
-  cursor:pointer;margin:5px;transition:.25s;
+  color:white;
+  font-size:1rem;
+  margin-top:10px;
 }
-button:hover{transform:scale(1.05);} 
-.video-wrapper{position:relative;border-radius:15px;overflow:hidden;border:1px solid rgba(255,255,255,0.1);} 
-video{width:100%;max-height:420px;object-fit:cover;}
-canvas{position:absolute;top:0;left:0;}
-.controls{margin-top:10px;}
-.status{margin-top:10px;font-size:.85rem;opacity:.7;}
+
+.video-box{
+  position:relative;
+  width:100%;
+  border-radius:18px;
+  overflow:hidden;
+  margin-top:15px;
+  border:1px solid rgba(255,255,255,0.1);
+}
+
+video{
+  width:100%;
+  height:auto;
+  display:block;
+}
+
+canvas{
+  position:absolute;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+}
+
+.controls{
+  display:flex;
+  gap:10px;
+  margin-top:10px;
+}
+
+.controls button{
+  flex:1;
+}
+
+.status{
+  margin-top:10px;
+  font-size:.8rem;
+  opacity:.7;
+}
+
 .hidden{display:none;}
+
 </style>
 </head>
 
 <body>
 <div class="container">
+
 <h1>📸 Cámara Inteligente</h1>
+
 <button id="startBtn">¿Preparado? Toma una foto</button>
 
-<div id="cameraSection" class="hidden">
+<div id="camUI" class="hidden">
 
-<div class="video-wrapper">
+<div class="video-box">
   <video id="video" autoplay playsinline></video>
-  <canvas id="overlay"></canvas>
+  <canvas id="canvas"></canvas>
 </div>
 
 <div class="controls">
-  <button id="switchCam">🔄 Cambiar cámara</button>
-  <button id="capture">📷 Capturar</button>
-  <button id="download" class="hidden">⬇️ Descargar</button>
+  <button id="switch">🔄</button>
+  <button id="capture">📷</button>
 </div>
 
-<div class="status" id="status">Inicializando...</div>
+<button id="download" class="hidden">⬇️ Descargar Foto</button>
+
+<div class="status" id="status">Cargando...</div>
 
 </div>
 </div>
 
 <script>
-let video = document.getElementById('video');
-let overlay = document.getElementById('overlay');
-let ctx = overlay.getContext('2d');
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const statusText = document.getElementById('status');
+
 let stream;
 let facing = 'environment';
 
-const statusText = document.getElementById('status');
-
-// INICIAR CAMARA
 async function startCamera(){
   if(stream) stream.getTracks().forEach(t=>t.stop());
 
   try{
     stream = await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:facing,width:{ideal:1920},height:{ideal:1080}},
+      video:{facingMode:facing,width:{ideal:1280},height:{ideal:720}},
       audio:false
     });
 
@@ -84,63 +135,73 @@ async function startCamera(){
   }
 }
 
-// BOTON INICIO
+// iniciar
 document.getElementById('startBtn').onclick = async ()=>{
-  document.getElementById('cameraSection').classList.remove('hidden');
+  document.getElementById('camUI').classList.remove('hidden');
   await startCamera();
-  await loadFaceAPI();
+  await loadModels();
   detectFaces();
 };
 
-// CAMBIAR CAMARA
-document.getElementById('switchCam').onclick = async ()=>{
-  facing = (facing === 'environment') ? 'user' : 'environment';
+// cambiar camara
+document.getElementById('switch').onclick = async ()=>{
+  facing = facing === 'environment' ? 'user' : 'environment';
   await startCamera();
 };
 
-// CAPTURA ALTA CALIDAD
+// captura
 document.getElementById('capture').onclick = ()=>{
-  const canvas = document.createElement('canvas');
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  const c = canvas.getContext('2d');
+  const temp = document.createElement('canvas');
+  temp.width = video.videoWidth;
+  temp.height = video.videoHeight;
+  const c = temp.getContext('2d');
   c.drawImage(video,0,0);
 
   const link = document.getElementById('download');
-  link.href = canvas.toDataURL('image/png',1.0);
-  link.download = `foto_${Date.now()}.png`;
+  link.href = temp.toDataURL('image/png',1.0);
+  link.download = 'foto.png';
   link.classList.remove('hidden');
 
   statusText.innerText = 'Foto capturada ✔';
 };
 
-// DESCARGA
+// descargar
 document.getElementById('download').onclick = function(){
   this.click();
 };
 
-// FACE API
-async function loadFaceAPI(){
+// cargar modelos
+async function loadModels(){
   const url = 'https://cdn.jsdelivr.net/npm/face-api.js/weights';
   await faceapi.nets.tinyFaceDetector.loadFromUri(url);
+  statusText.innerText = 'IA lista 🤖';
 }
 
+// deteccion
 async function detectFaces(){
-  overlay.width = video.clientWidth;
-  overlay.height = video.clientHeight;
+  canvas.width = video.clientWidth;
+  canvas.height = video.clientHeight;
 
   setInterval(async ()=>{
+    if(video.readyState !== 4) return;
+
     const detections = await faceapi.detectAllFaces(video,new faceapi.TinyFaceDetectorOptions());
-    ctx.clearRect(0,0,overlay.width,overlay.height);
+
+    ctx.clearRect(0,0,canvas.width,canvas.height);
 
     detections.forEach(det=>{
-      const box = det.box;
+      const {x,y,width,height} = det.box;
+
       ctx.strokeStyle = '#00ff99';
       ctx.lineWidth = 2;
-      ctx.strokeRect(box.x,box.y,box.width,box.height);
+      ctx.strokeRect(x,y,width,height);
+
+      ctx.fillStyle = '#00ff99';
+      ctx.font = '12px Poppins';
+      ctx.fillText('Rostro detectado', x, y - 5);
     });
 
-  },200);
+  },150);
 }
 
 </script>
